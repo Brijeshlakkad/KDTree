@@ -60,7 +60,7 @@ public class KDTree<T> {
         return dataPoint.getClass().getDeclaredField(attributes[attrIndex]).get(dataPoint);
     }
 
-    public void add(T newPoint) throws NoSuchFieldException, IllegalAccessException {
+    public void add(T newPoint) throws NoSuchFieldException, IllegalAccessException, NotFound {
         if (root.leaf) {
             root = addToBucket(root, newPoint);
             return;
@@ -120,6 +120,93 @@ public class KDTree<T> {
             }
 //            newNode.left.bucket = new ArrayList<>(currentNode.bucket.subList(0, medianIndex));
 //            newNode.right.bucket = new ArrayList<>(currentNode.bucket.subList(medianIndex, currentNode.bucket.size()));
+            currentNode = newNode;
+        }
+        return currentNode;
+    }
+
+    public void delete(T dataPoint) throws NoSuchFieldException, IllegalAccessException, NotFound {
+        root = delete(root, dataPoint);
+    }
+
+    private Node delete(Node currentNode, T dataPoint) throws NoSuchFieldException, IllegalAccessException, NotFound {
+        if (currentNode.leaf) {
+            return null;
+        }
+
+        int newValue = (int) getAttributeValue(dataPoint, currentNode.attrIndex);
+        int currentValue = currentNode.value;
+
+        if (newValue < currentValue) {
+            if (currentNode.left.leaf) {
+                if (currentNode.left.bucket.contains(dataPoint)) {
+                    currentNode = removeFromBucket(currentNode, dataPoint, true);
+                } else {
+                    throw new NotFound();
+                }
+            } else {
+                currentNode.left = delete(currentNode.left, dataPoint);
+            }
+        } else {
+            if (currentNode.right.leaf) {
+                if (currentNode.right.bucket.contains(dataPoint)) {
+                    currentNode = removeFromBucket(currentNode, dataPoint, false);
+                } else {
+                    throw new NotFound();
+                }
+            } else {
+                currentNode.right = delete(currentNode.right, dataPoint);
+            }
+        }
+        return currentNode;
+    }
+
+    private Node removeFromBucket(Node currentNode, T dataPoint, boolean isLeft) throws NoSuchFieldException, IllegalAccessException {
+        int nextAttrIndex = ((currentNode.attrIndex + 1) % attributes.length);
+
+        if (isLeft) {
+            currentNode.left.bucket.remove(dataPoint);
+        } else {
+            currentNode.right.bucket.remove(dataPoint);
+        }
+
+        if (currentNode.left.bucket.size() + currentNode.right.bucket.size() < (bucketSize / 2)) {
+            // Merge two nodes.
+            Node newNode = new Node(true, currentNode.attrIndex);
+            newNode.bucket = new ArrayList<>(currentNode.left.bucket);
+            newNode.bucket.addAll(currentNode.right.bucket);
+            currentNode = newNode;
+        } else if (Math.abs(currentNode.left.bucket.size() - currentNode.right.bucket.size()) > 2) {
+            List<T> bucket = new ArrayList<>(currentNode.left.bucket);
+            bucket.addAll(currentNode.right.bucket);
+            int attrIndex = currentNode.attrIndex;
+            bucket.sort((a, b) -> {
+                try {
+                    int aV = ((int) getAttributeValue(a, attrIndex));
+                    int bV = ((int) getAttributeValue(b, attrIndex));
+                    return aV - bV;
+                } catch (NoSuchFieldException | IllegalAccessException ignored) {
+                }
+                return 0;
+            });
+
+            T lowerD = bucket.get(0);
+            T upperD = bucket.get(bucket.size() - 1);
+
+            int median = (int) getAttributeValue(lowerD, currentNode.attrIndex) + (int) getAttributeValue(upperD, currentNode.attrIndex);
+            median /= 2;
+
+            Node newNode = new Node(median, currentNode.attrIndex);
+            newNode.left = new Node(true, nextAttrIndex);
+            newNode.right = new Node(true, nextAttrIndex);
+
+            for (T t : bucket) {
+                if (median > (int) getAttributeValue(t, currentNode.attrIndex)) {
+                    newNode.left.add(t);
+                } else {
+                    newNode.right.add(t);
+                }
+            }
             currentNode = newNode;
         }
         return currentNode;
