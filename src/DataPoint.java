@@ -1,12 +1,12 @@
 import java.util.Objects;
 
 public class DataPoint {
-    int salary;
     int age;
+    int salary;
 
-    public DataPoint(int salary, int age) {
-        this.salary = salary;
+    public DataPoint(int age, int salary) {
         this.age = age;
+        this.salary = salary;
     }
 
     @Override
