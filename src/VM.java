@@ -23,9 +23,15 @@ public class VM {
             kdTree.add(new DataPoint(30, 260));
             kdTree.add(new DataPoint(60, 260));
             kdTree.add(new DataPoint(60, 270));
+            kdTree.add(new DataPoint(20, 200));
+            kdTree.add(new DataPoint(100, 500));
+            kdTree.add(new DataPoint(65, 380));
 
             kdTree.delete(new DataPoint(60, 270));
             kdTree.delete(new DataPoint(60, 260));
+
+//            kdTree.delete(new DataPoint(60, 270));
+//            kdTree.delete(new DataPoint(60, 260));
 //            kdTree.delete(new DataPoint(45, 350));
 //            kdTree.delete(new DataPoint(30, 260));
 //            kdTree.delete(new DataPoint(25, 400));

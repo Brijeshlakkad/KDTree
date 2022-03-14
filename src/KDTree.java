@@ -249,45 +249,47 @@ public class KDTree<T> {
             currentNode.right.bucket.remove(dataPoint);
         }
 
-        if (currentNode.left.bucket.size() + currentNode.right.bucket.size() < (bucketSize / 2)) {
-            // Merge two nodes.
-            Node newNode = new Node(true, currentNode.attrIndex);
-            newNode.bucket = new ArrayList<>(currentNode.left.bucket);
-            newNode.bucket.addAll(currentNode.right.bucket);
-            currentNode = newNode;
-        } else if (Math.abs(currentNode.left.bucket.size() - currentNode.right.bucket.size()) > 2) {
-            // Balance these two leaf buckets.
-            List<T> bucket = new ArrayList<>(currentNode.left.bucket);
-            bucket.addAll(currentNode.right.bucket);
-            int attrIndex = currentNode.attrIndex;
-            bucket.sort((a, b) -> {
-                try {
-                    int aV = ((int) getAttributeValue(a, attrIndex));
-                    int bV = ((int) getAttributeValue(b, attrIndex));
-                    return aV - bV;
-                } catch (NotFound ignored) {
+        if (currentNode.left.leaf && currentNode.right.leaf) {
+            if (currentNode.left.bucket.size() + currentNode.right.bucket.size() < (bucketSize / 2)) {
+                // Merge two nodes.
+                Node newNode = new Node(true, currentNode.attrIndex);
+                newNode.bucket = new ArrayList<>(currentNode.left.bucket);
+                newNode.bucket.addAll(currentNode.right.bucket);
+                currentNode = newNode;
+            } else if (Math.abs(currentNode.left.bucket.size() - currentNode.right.bucket.size()) > 2) {
+                // Balance these two leaf buckets.
+                List<T> bucket = new ArrayList<>(currentNode.left.bucket);
+                bucket.addAll(currentNode.right.bucket);
+                int attrIndex = currentNode.attrIndex;
+                bucket.sort((a, b) -> {
+                    try {
+                        int aV = ((int) getAttributeValue(a, attrIndex));
+                        int bV = ((int) getAttributeValue(b, attrIndex));
+                        return aV - bV;
+                    } catch (NotFound ignored) {
+                    }
+                    return 0;
+                });
+
+                T lowerD = bucket.get(0);
+                T upperD = bucket.get(bucket.size() - 1);
+
+                int median = (int) getAttributeValue(lowerD, currentNode.attrIndex) + (int) getAttributeValue(upperD, currentNode.attrIndex);
+                median /= 2;
+
+                Node newNode = new Node(median, currentNode.attrIndex);
+                newNode.left = new Node(true, nextAttrIndex);
+                newNode.right = new Node(true, nextAttrIndex);
+
+                for (T t : bucket) {
+                    if (median > (int) getAttributeValue(t, currentNode.attrIndex)) {
+                        newNode.left.add(t);
+                    } else {
+                        newNode.right.add(t);
+                    }
                 }
-                return 0;
-            });
-
-            T lowerD = bucket.get(0);
-            T upperD = bucket.get(bucket.size() - 1);
-
-            int median = (int) getAttributeValue(lowerD, currentNode.attrIndex) + (int) getAttributeValue(upperD, currentNode.attrIndex);
-            median /= 2;
-
-            Node newNode = new Node(median, currentNode.attrIndex);
-            newNode.left = new Node(true, nextAttrIndex);
-            newNode.right = new Node(true, nextAttrIndex);
-
-            for (T t : bucket) {
-                if (median > (int) getAttributeValue(t, currentNode.attrIndex)) {
-                    newNode.left.add(t);
-                } else {
-                    newNode.right.add(t);
-                }
+                currentNode = newNode;
             }
-            currentNode = newNode;
         }
         return currentNode;
     }
