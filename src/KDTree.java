@@ -4,8 +4,17 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-
+/**
+ * KD Tree is a binary search tree where data node is a K-dimensional point in space.
+ * <p>
+ * {@see https://en.wikipedia.org/wiki/K-d_tree}
+ *
+ * @param <T>
+ */
 public class KDTree<T> {
+    /**
+     * Node representing a data point in K-dimensional space.
+     */
     class Node {
         int value;
         int attrIndex;
@@ -19,7 +28,7 @@ public class KDTree<T> {
                 int aV = ((int) getAttributeValue(a, attrIndex));
                 int bV = ((int) getAttributeValue(b, attrIndex));
                 return aV - bV;
-            } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            } catch (NotFound ignored) {
             }
             return 0;
         };
@@ -34,6 +43,11 @@ public class KDTree<T> {
             this.attrIndex = attrIndex;
         }
 
+        /**
+         * Adds the point to the bucket associated with this node.
+         *
+         * @param dataPoint Data point.
+         */
         public void add(T dataPoint) {
             // Insertion sort
             bucket.add(dataPoint);
@@ -50,17 +64,42 @@ public class KDTree<T> {
     private Node root;
     private final int bucketSize;
 
+    /**
+     * Creates the root node and the list of attributes (dimensions).
+     *
+     * @param classType     Type of class for data point.
+     * @param bucketSize    Leaf node bucket size.
+     * @param attrIndexSeed The root attribute index.
+     */
     public KDTree(Class<?> classType, int bucketSize, int attrIndexSeed) {
         attributes = Arrays.stream(classType.getDeclaredFields()).map(Field::getName).toArray(String[]::new);
         this.bucketSize = bucketSize;
         root = new Node(true, attrIndexSeed);
     }
 
-    private Object getAttributeValue(T dataPoint, int attrIndex) throws NoSuchFieldException, IllegalAccessException {
-        return dataPoint.getClass().getDeclaredField(attributes[attrIndex]).get(dataPoint);
+    /**
+     * Gets the attribute value of datapoint using the Java Reflections.
+     *
+     * @param dataPoint Data point.
+     * @param attrIndex Attribute (dimension) index.
+     * @return Value of the datapoint for the particular attribute.
+     * @throws NotFound If the attribute not found in the provided object.
+     */
+    private Object getAttributeValue(T dataPoint, int attrIndex) throws NotFound {
+        try {
+            return dataPoint.getClass().getDeclaredField(attributes[attrIndex]).get(dataPoint);
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+            throw new NotFound();
+        }
     }
 
-    public void add(T newPoint) throws NoSuchFieldException, IllegalAccessException, NotFound {
+    /**
+     * Adds the datapoint at the appropriate leaf node by searching through the tree using binary search.
+     *
+     * @param newPoint New point.
+     * @throws NotFound If the attribute not found in the provided object.
+     */
+    public void add(T newPoint) throws NotFound {
         if (root.leaf) {
             root = addToBucket(root, newPoint);
             return;
@@ -90,7 +129,18 @@ public class KDTree<T> {
         }
     }
 
-    public Node addToBucket(Node currentNode, T newPoint) throws NoSuchFieldException, IllegalAccessException {
+    /**
+     * Adds the node to bucket of leaf node. If the bucket is full, we will split the bucket by median value.
+     * The split buckets will be attached to new node which will be returned as a current node.
+     * <p>
+     * If the bucket is not full, we will simply add the new node to the current node's bucket.
+     *
+     * @param currentNode Current node to be modified.
+     * @param newPoint    New point to be added.
+     * @return Modified current node or new node containing the leaves.
+     * @throws NotFound If the attribute not found in the provided object.
+     */
+    public Node addToBucket(Node currentNode, T newPoint) throws NotFound {
         if (currentNode.size() < bucketSize) {
             currentNode.add(newPoint);
         }
@@ -125,11 +175,29 @@ public class KDTree<T> {
         return currentNode;
     }
 
-    public void delete(T dataPoint) throws NoSuchFieldException, IllegalAccessException, NotFound {
-        root = delete(root, dataPoint);
+    /**
+     * Deletes the datapoint on root node.
+     *
+     * @param dataPoint Data point.
+     */
+    public void delete(T dataPoint) {
+        try {
+            root = delete(root, dataPoint);
+        } catch (NotFound e) {
+            e.printStackTrace();
+            System.out.println(e.getMessage());
+        }
     }
 
-    private Node delete(Node currentNode, T dataPoint) throws NoSuchFieldException, IllegalAccessException, NotFound {
+    /**
+     * Deletes the datapoint recursively using binary search.
+     *
+     * @param currentNode Current node.
+     * @param dataPoint   Data point to be deleted.
+     * @return Modified current node.
+     * @throws NotFound If the attribute not found in the data point object.
+     */
+    private Node delete(Node currentNode, T dataPoint) throws NotFound {
         if (currentNode.leaf) {
             return null;
         }
@@ -161,7 +229,18 @@ public class KDTree<T> {
         return currentNode;
     }
 
-    private Node removeFromBucket(Node currentNode, T dataPoint, boolean isLeft) throws NoSuchFieldException, IllegalAccessException {
+    /**
+     * When we reach to the leave node, we will remove the node if the bucket contains it; Otherwise we will throw an exception.
+     * After removing, we will merge two leave buckets if the total size of these bucket is less than the threshold.
+     * If both the leaves are imbalanced, we will make these buckets balanced by adding some nodes from one leaf bucket to another.
+     *
+     * @param currentNode Current node.
+     * @param dataPoint   Data point.
+     * @param isLeft      If the current node's left leaf has the data point or the right bucket.
+     * @return Returns the current node.
+     * @throws NotFound If the attribute not found in the data point object.
+     */
+    private Node removeFromBucket(Node currentNode, T dataPoint, boolean isLeft) throws NotFound {
         int nextAttrIndex = ((currentNode.attrIndex + 1) % attributes.length);
 
         if (isLeft) {
@@ -177,6 +256,7 @@ public class KDTree<T> {
             newNode.bucket.addAll(currentNode.right.bucket);
             currentNode = newNode;
         } else if (Math.abs(currentNode.left.bucket.size() - currentNode.right.bucket.size()) > 2) {
+            // Balance these two leaf buckets.
             List<T> bucket = new ArrayList<>(currentNode.left.bucket);
             bucket.addAll(currentNode.right.bucket);
             int attrIndex = currentNode.attrIndex;
@@ -185,7 +265,7 @@ public class KDTree<T> {
                     int aV = ((int) getAttributeValue(a, attrIndex));
                     int bV = ((int) getAttributeValue(b, attrIndex));
                     return aV - bV;
-                } catch (NoSuchFieldException | IllegalAccessException ignored) {
+                } catch (NotFound ignored) {
                 }
                 return 0;
             });
@@ -212,26 +292,9 @@ public class KDTree<T> {
         return currentNode;
     }
 
-    private void display(Node node) {
-        // base case
-        if (node == null) {
-            return;
-        }
-
-        if (node.leaf) {
-            for (int i = 0; i < node.bucket.size(); i++) {
-                System.out.println(" | " + node.bucket.get(i) + " | ");
-            }
-        }
-
-        display(node.left);
-        display(node.right);
-    }
-
-    public void display() {
-        display(root);
-    }
-
+    /**
+     * Prints the kd-tree.
+     */
     public void print() {
         List<List<String>> lines = new ArrayList<List<String>>();
 
@@ -324,9 +387,8 @@ public class KDTree<T> {
             }
 
             // print line of numbers
-            for (int j = 0; j < line.size(); j++) {
+            for (String f : line) {
 
-                String f = line.get(j);
                 if (f == null) f = "";
                 int gap1 = (int) Math.ceil(perpiece / 2f - f.length() / 2f);
                 int gap2 = (int) Math.floor(perpiece / 2f - f.length() / 2f);
@@ -345,91 +407,4 @@ public class KDTree<T> {
             perpiece /= 2;
         }
     }
-
-//
-//    private boolean isNull(Node<T> node) {
-//        return node == null || node.dataPoint == null;
-//    }
-//
-//    public T getLeftMostMinDataPoint(Node<T> currentNode, int attrIndex, int currentAttrIndex) throws NoSuchFieldException, IllegalAccessException {
-//        if (isNull(currentNode)) {
-//            return null;
-//        }
-//
-//        int nextAttrIndex = ++currentAttrIndex % attributes.length;
-//
-//        if (currentAttrIndex == attrIndex) {
-//            if (isNull(currentNode.left)) return currentNode.dataPoint;
-//            return getLeftMostMinDataPoint(currentNode.left, attrIndex, nextAttrIndex);
-//        }
-//
-//        // Find left most minimum in the left and right subtree.
-//        T minDataPoint = currentNode.dataPoint;
-//        int min = (int) getAttributeValue(minDataPoint, currentAttrIndex);
-//
-//        if (!isNull(currentNode.left)) {
-//            T leftMinDataPoint = getLeftMostMinDataPoint(currentNode.left, attrIndex, nextAttrIndex);
-//            int leftMin = (int) getAttributeValue(leftMinDataPoint, currentAttrIndex);
-//            if (leftMin < min) {
-//                min = leftMin;
-//                minDataPoint = leftMinDataPoint;
-//            }
-//        }
-//
-//        if (!isNull(currentNode.right)) {
-//            T rightMinDataPoint = getLeftMostMinDataPoint(currentNode.right, attrIndex, nextAttrIndex);
-//            int rightMin = (int) getAttributeValue(rightMinDataPoint, currentAttrIndex);
-//            if (min > rightMin) {
-//                min = rightMin;
-//                minDataPoint = rightMinDataPoint;
-//            }
-//        }
-//
-//        return minDataPoint;
-//    }
-//
-//    private Node<T> deleteRecord(Node<T> currentNode, T newPoint, int attrIndexSeed) throws NoSuchFieldException, IllegalAccessException {
-//        int currentAttrIndex = attrIndexSeed;
-//
-//        while (!isNull(currentNode)) {
-//            if (currentNode.dataPoint.equals(newPoint)) {
-//                int nextAttrIndex = ++currentAttrIndex % attributes.length;
-//                if (!isNull(currentNode.right)) {
-//                    currentNode.dataPoint = getLeftMostMinDataPoint(currentNode.right, currentAttrIndex, nextAttrIndex);
-//                    return deleteRecord(currentNode.left, currentNode.dataPoint, nextAttrIndex);
-//                } else if (!isNull(currentNode.left)) {
-//                    currentNode.dataPoint = getLeftMostMinDataPoint(currentNode.left, currentAttrIndex, nextAttrIndex);
-//                    return deleteRecord(currentNode.right, currentNode.dataPoint, nextAttrIndex);
-//                }
-//                currentNode.dataPoint = null;
-//                return null;
-//            }
-//
-//            int newValue = (int) getAttributeValue(newPoint, currentAttrIndex);
-//            int currentValue = (int) getAttributeValue(currentNode.dataPoint, currentAttrIndex);
-//
-//
-//            if (newValue < currentValue) {
-//                if (isNull(currentNode.left)) {
-//                    return null;
-//                } else {
-//                    currentNode = currentNode.left;
-//                }
-//            } else {
-//                if (isNull(currentNode.right)) {
-//                    return null;
-//                } else {
-//                    currentNode = currentNode.right;
-//                }
-//            }
-//
-//            currentAttrIndex = ++currentAttrIndex % attributes.length;
-//        }
-//
-//        return null;
-//    }
-//
-//    public void deleteRecord(T newPoint) throws NoSuchFieldException, IllegalAccessException {
-//        deleteRecord(root, newPoint, attrIndexSeed);
-//    }
 }

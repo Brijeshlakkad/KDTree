@@ -1,3 +1,6 @@
+/**
+ * Virtual Machine creates kd-tree object and invokes its methods.
+ */
 public class VM {
     public static void main(String[] args) {
         KDTree<DataPoint> kdTree = new KDTree<>(DataPoint.class, 2, 1);
@@ -23,16 +26,14 @@ public class VM {
 
             kdTree.delete(new DataPoint(60, 270));
             kdTree.delete(new DataPoint(60, 260));
-
-//            kdTree.deleteRecord(new DataPoint(10, 19));
-//            kdTree.deleteRecord(new DataPoint(17, 15));
-
-            System.out.println();
+//            kdTree.delete(new DataPoint(45, 350));
+//            kdTree.delete(new DataPoint(30, 260));
+//            kdTree.delete(new DataPoint(25, 400));
 
             kdTree.print();
 
-        } catch (NoSuchFieldException | IllegalAccessException | NotFound e) {
-            e.printStackTrace();
+        } catch (NotFound e) {
+            System.out.println("Something went wrong!");
         }
     }
 }

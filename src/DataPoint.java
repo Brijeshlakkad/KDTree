@@ -1,5 +1,8 @@
 import java.util.Objects;
 
+/**
+ * Datapoint class with salary and age as its member fields.
+ */
 public class DataPoint {
     int age;
     int salary;
